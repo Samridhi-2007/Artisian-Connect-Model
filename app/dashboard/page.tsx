@@ -77,6 +77,8 @@ export default function DashboardPage() {
   const [uploadLoading, setUploadLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
   const [mintingNFT, setMintingNFT] = useState<string | null>(null)
+  const [mintingUploadNFT, setMintingUploadNFT] = useState(false); // New state for upload NFT minting
+  const [mintResult, setMintResult] = useState<string | null>(null); // New state for minting result
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -276,6 +278,41 @@ export default function DashboardPage() {
       setMintingNFT(null)
     }
   }
+
+  const handleMintNFTFromUpload = async () => {
+    setMintingUploadNFT(true);
+    setMintResult(null);
+    const hashtags = extractHashtags(uploadForm.description);
+    if (hashtags.length === 0) {
+      setMintResult('No hashtags found to mint.');
+      setMintingUploadNFT(false);
+      return;
+    }
+    try {
+      const response = await fetch("/api/nft/mint-hashtags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hashtags }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setMintResult(`Minted NFTs for hashtags: ${hashtags.join(', ')}`);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to mint NFTs");
+      }
+    } catch (error) {
+      console.error("NFT minting failed:", error);
+      setMintResult(`Failed to mint NFTs: ${error instanceof Error ? error.message : "Please try again."}`);
+    } finally {
+      setMintingUploadNFT(false);
+    }
+  };
+
+  const extractHashtags = (text: string) => {
+    return (text.match(/#\w+/g) || []).map(tag => tag.replace('#', ''));
+  };
 
   const marketTrends = [
     { category: "Traditional Art", trend: "+23%", demand: "High", color: "text-green-600" },
@@ -979,6 +1016,28 @@ export default function DashboardPage() {
                       </>
                     )}
                   </Button>
+                  <Button
+                    className="w-full bg-green-500 hover:bg-green-700 text-white"
+                    onClick={handleMintNFTFromUpload}
+                    disabled={mintingUploadNFT || !uploadForm.description}
+                  >
+                    {mintingUploadNFT ? (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2 animate-spin" />
+                        Minting NFTs...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Mint NFT from Hashtags
+                      </>
+                    )}
+                  </Button>
+                  {mintResult && (
+                    <div style={{ marginTop: 8, color: mintResult.includes('fail') ? 'red' : 'green' }}>
+                      {mintResult}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
